@@ -26,6 +26,30 @@ const renderTask = (task) => {
     const taskText = document.createElement("span");
     taskText.textContent = task.title;
 
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.textContent = "Edit";
+    editButton.classList.add("edit-button");
+
+    editButton.addEventListener("click", () => {
+        const answer = prompt("Geef niewue titel", task.title);
+
+        if(answer === null){
+            return;
+        }
+
+        const newTitle = answer.trim();
+
+        if(newTitle === ""){
+            return;
+        }
+
+        task.title = newTitle;
+        taskText.textContent = newTitle;
+        checkBox.setAttribute("aria-label", "Complete task:" + newTitle);
+        saveTasks(tasks);
+    })
+
 
     const deleteButton = document.createElement("button");
     deleteButton.type = "button";
@@ -42,8 +66,11 @@ const renderTask = (task) => {
     taskItem.appendChild(checkBox);
     taskItem.appendChild(taskText);
     taskItem.appendChild(deleteButton);
+    taskItem.appendChild(editButton);
     taskList.appendChild(taskItem);
 }
+
+
 
 
     const addTask = (event) => {
@@ -81,68 +108,3 @@ const renderTask = (task) => {
     window.addEventListener("load", setup);
 
 
-
-
-
-// const setup = () =>{
-//     const taskForm = document.getElementById("task-form");
-//
-//     taskForm.addEventListener("submit" , addTask);
-//
-//
-//
-//
-//
-// }
-// const addTask = (event) =>{
-//     event.preventDefault();
-//
-//     let getTaskTitle = document.getElementById("task");
-//     let taskTitle = getTaskTitle.value.trim()
-//     let TaskList = document.getElementById("task-list");
-//
-//     const taskItem = document.createElement("li");
-//
-//     if(taskTitle === ""){
-//         getTaskTitle.focus();
-//         return;
-//
-//     }
-//
-//     const taskText = document.createElement("span");
-//     taskText.textContent = taskTitle;
-//
-//     const deleteButton = document.createElement("button");
-//     deleteButton.type = "button";
-//     deleteButton.textContent = "Delete";
-//     deleteButton.classList.add("delete-button");
-//
-//     deleteButton.addEventListener("click", function(){
-//         taskItem.remove();
-//     });
-//
-//     const box = document.createElement("input");
-//     box.type = "checkbox";
-//     box.classList.add("task-checkbox");
-//
-//     box.setAttribute(
-//         "aria-label",
-//         "Complete task: " + taskTitle
-//     );
-//
-//     box.addEventListener("change", () => {
-//         taskItem.classList.toggle("completed", box.checked);
-//     });
-//
-//         taskItem.appendChild(box);
-//         taskItem.appendChild(taskText);
-//         taskItem.appendChild(deleteButton);
-//
-//
-//         // Sonra görev satırını listeye ekle.
-//         TaskList.appendChild(taskItem);
-//
-//
-//
-// }
-// window.addEventListener("load" ,setup);
