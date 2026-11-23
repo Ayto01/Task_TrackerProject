@@ -1,4 +1,5 @@
 import { saveTasks, loadTasks } from "./storage.js";
+import { fetchTasks } from "./api.js";
 
 let tasks = [];
 
@@ -70,6 +71,29 @@ const renderTask = (task) => {
     taskList.appendChild(taskItem);
 }
 
+const taskFilter = document.getElementById("task-filter");
+
+const renderTasks = () => {
+    const filter = taskFilter.value;
+
+    const visibleTasks = tasks.filter((task) => {
+        if (filter === "active") {
+            return !task.completed;
+        }
+
+        if (filter === "completed") {
+            return task.completed;
+        }
+
+        return true;
+    });
+
+    const taskList = document.getElementById("task-list");
+    taskList.replaceChildren();
+    visibleTasks.forEach(renderTask);
+};
+
+
 
 
 
@@ -97,12 +121,46 @@ const renderTask = (task) => {
         saveTasks(tasks);
     }
 
+const importSampleTasks = async (event) => {
+    const button = event.currentTarget;
+    const status = document.getElementById("api-status");
+
+    button.disabled = true;
+    status.textContent = "Loading sample tasks...";
+
+    try {
+        const apiTasks = await fetchTasks();
+        const newTasks = apiTasks.filter(
+            (apiTask) => !tasks.some((task) => task.id === apiTask.id)
+        );
+
+        const updatedTasks = tasks.concat(newTasks);
+        saveTasks(updatedTasks);
+        tasks = updatedTasks;
+        renderTasks();
+
+        status.textContent = "Sample tasks loaded.";
+    } catch (e) {
+        status.textContent = "Could not load sample tasks.";
+        console.error(e);
+    } finally {
+        button.disabled = false;
+    }
+};
+
     const setup = () =>{
         tasks = loadTasks();
         tasks.forEach(renderTask);
 
+
+
         const taskForm = document.getElementById("task-form");
         taskForm.addEventListener("submit",addTask)
+
+        taskFilter.addEventListener("change", renderTasks);
+
+        const loadButton = document.getElementById("load-sample-tasks");
+        loadButton.addEventListener("click", importSampleTasks);
     }
 
     window.addEventListener("load", setup);

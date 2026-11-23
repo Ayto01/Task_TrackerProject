@@ -107,3 +107,14 @@ button:focus-visible {
   flex-shrink: 0;
   background-color: deepskyblue;
 }
+
+.task-filter {
+  margin-top: 20px;
+}
+
+#task-filter {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+}
