@@ -40,3 +40,25 @@ export const deleteTask = async (id) =>{
     }
     throw new Error(`Failed to delete task ${response.status}`);
 };
+
+export const updateTask = async (id, changes) => {
+    const response = await fetch(`${TASK_URL}/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(changes)
+    });
+
+    if (response.ok) {
+        return response.json();
+    }
+
+    if (response.status === 404) {
+        const data = await response.json().catch(() => null);
+
+        if (data?.error === "Task not found" || data?.error === "Task not found.") {
+            return null;
+        }
+    }
+
+    throw new Error(`Failed to update task (${response.status})`);
+};

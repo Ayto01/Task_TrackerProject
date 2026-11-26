@@ -1,5 +1,5 @@
 import { saveTasks, loadTasks } from "./storage.js";
-import { fetchTasks , createTask,deleteTask} from "./api.js";
+import { fetchTasks , createTask,deleteTask, updateTask} from "./api.js";
 
 let tasks = [];
 
@@ -16,11 +16,44 @@ const renderTask = (task) => {
 
     checkBox.setAttribute("aria-label", "Complete task:" + task.title);
 
-    checkBox.addEventListener("change", () => {
-        task.completed = checkBox.checked;
-        taskItem.classList.toggle("completed", task.completed);
+    checkBox.addEventListener("change", async () => {
+        const completed = checkBox.checked;
+        checkBox.checked = task.completed;
 
-        saveTasks(tasks);
+        const status = document.getElementById("task-status");
+        const loadButton = document.getElementById("load-sample-tasks");
+
+        if (loadButton.disabled) {
+            status.textContent = "Wait for the current request to finish.";
+            return;
+        }
+
+        checkBox.disabled = true;
+        loadButton.disabled = true;
+        status.textContent = "Updating task...";
+
+        try {
+            const updatedTask = await updateTask(task.id, { completed });
+            const nextCompleted = updatedTask?.completed ?? completed;
+
+            const updatedTasks = tasks.map((item) =>
+                item.id === task.id ? { ...item, completed: nextCompleted } : item
+            );
+
+            saveTasks(updatedTasks);
+            tasks = updatedTasks;
+            renderTasks();
+
+            status.textContent = updatedTask
+                ? "Task updated."
+                : "Task updated in this browser.";
+        } catch (error) {
+            status.textContent = "Could not finish updating the task.";
+            console.error(error);
+        } finally {
+            checkBox.disabled = false;
+            loadButton.disabled = false;
+        }
     });
 
 
@@ -32,24 +65,55 @@ const renderTask = (task) => {
     editButton.textContent = "Edit";
     editButton.classList.add("edit-button");
 
-    editButton.addEventListener("click", () => {
-        const answer = prompt("Geef niewue titel", task.title);
+    editButton.addEventListener("click", async () => {
+        const status = document.getElementById("task-status");
+        const loadButton = document.getElementById("load-sample-tasks");
 
-        if(answer === null){
+        if (loadButton.disabled) {
+            status.textContent = "Wait for the current request to finish.";
+            return;
+        }
+
+        const answer = window.prompt("Edit task title:", task.title);
+
+        if (answer === null) {
             return;
         }
 
         const newTitle = answer.trim();
 
-        if(newTitle === ""){
+        if (newTitle === "") {
+            status.textContent = "Enter a task title.";
             return;
         }
 
-        task.title = newTitle;
-        taskText.textContent = newTitle;
-        checkBox.setAttribute("aria-label", "Complete task:" + newTitle);
-        saveTasks(tasks);
-    })
+        editButton.disabled = true;
+        loadButton.disabled = true;
+        status.textContent = "Updating task...";
+
+        try {
+            const updatedTask = await updateTask(task.id, { title: newTitle });
+            const nextTitle = updatedTask?.title ?? newTitle;
+
+            const updatedTasks = tasks.map((item) =>
+                item.id === task.id ? { ...item, title: nextTitle } : item
+            );
+
+            saveTasks(updatedTasks);
+            tasks = updatedTasks;
+            renderTasks();
+
+            status.textContent = updatedTask
+                ? "Task updated."
+                : "Task updated in this browser.";
+        } catch (error) {
+            status.textContent = "Could not finish updating the task.";
+            console.error(error);
+        } finally {
+            editButton.disabled = false;
+            loadButton.disabled = false;
+        }
+    });
 
 
     const deleteButton = document.createElement("button");

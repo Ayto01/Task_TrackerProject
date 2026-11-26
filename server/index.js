@@ -45,7 +45,44 @@ app.delete("/api/tasks/:id", (request, response) => {
     tasks.splice(taskIndex, 1);
     response.status(204);
     response.end();
-})
+});
+
+
+
+app.patch("/api/tasks/:id", (request, response) => {
+    const task = tasks.find((item) => item.id === request.params.id);
+
+    if (!task) {
+        return response.status(404).json({ error: "Task not found" });
+    }
+
+    const { title, completed } = request.body ?? {};
+    const changes = {};
+
+    if (title !== undefined) {
+        if (typeof title !== "string" || title.trim() === "") {
+            return response.status(400).json({ error: "Task title is required." });
+        }
+
+        changes.title = title.trim();
+    }
+    if (completed !== undefined) {
+        if (typeof completed !== "boolean") {
+            return response.status(400).json({
+                error: "Completed must be true or false."
+            });
+        }
+
+        changes.completed = completed;
+    }
+
+    if (Object.keys(changes).length === 0) {
+        return response.status(400).json({ error: "Provide a title or completion state." });
+    }
+
+    Object.assign(task, changes);
+    response.status(200).json(task);
+});
 
 app.listen(port, host, () => {
     console.log(`Task API running at http://${host}:${port}`);
