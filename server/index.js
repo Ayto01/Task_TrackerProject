@@ -36,6 +36,17 @@ app.post("/api/tasks", (request, response) => {
     response.status(201).json(task);
 });
 
+app.delete("/api/tasks/:id", (request, response) => {
+    const id = request.params.id;
+    const taskIndex = tasks.findIndex((task)=> task.id === id);
+    if (taskIndex === -1) {
+        return response.status(404).json({ error: "Task not found" });
+    }
+    tasks.splice(taskIndex, 1);
+    response.status(204);
+    response.end();
+})
+
 app.listen(port, host, () => {
     console.log(`Task API running at http://${host}:${port}`);
 })

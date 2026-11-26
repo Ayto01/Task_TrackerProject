@@ -1,5 +1,5 @@
 import { saveTasks, loadTasks } from "./storage.js";
-import { fetchTasks } from "./api.js";
+import { fetchTasks , createTask,deleteTask} from "./api.js";
 
 let tasks = [];
 
@@ -56,12 +56,36 @@ const renderTask = (task) => {
     deleteButton.type = "button";
     deleteButton.textContent = "Delete";
     deleteButton.classList.add("delete-button");
-    deleteButton.addEventListener("click", () => {
-        tasks = tasks.filter((item) => item.id !== task.id);
-        taskItem.remove();
-        saveTasks(tasks);
+   deleteButton.addEventListener("click", async () => {
+       const status = document.getElementById("task-status");
+       const loadButton = document.getElementById("load-sample-tasks");
 
-    });
+       if(loadButton.disabled){
+           status.textContent = "Wait for the current request to finish."
+       return;
+       }
+       deleteButton.disabled = true;
+       loadButton.disabled = true;
+       status.textContent = "Deleting task.."
+
+       try {
+           await deleteTask(task.id);
+
+           const updatedTasks = tasks.filter((item) => item.id !== task.id);
+           saveTasks(updatedTasks);
+           tasks = updatedTasks;
+           renderTasks();
+
+           status.textContent = "Task deleted.";
+       } catch (error) {
+           status.textContent = "Could not finish deleting the task.";
+           console.error(error);
+       } finally {
+           deleteButton.disabled = false;
+           loadButton.disabled = false;
+       }
+
+   })
 
 
     taskItem.appendChild(checkBox);
@@ -97,10 +121,12 @@ const renderTasks = () => {
 
 
 
-    const addTask = (event) => {
+    const addTask = async (event) => {
         event.preventDefault();
 
         const taskInput = document.getElementById("task");
+        const submitButton = event.currentTarget.querySelector('button[type="submit"]');
+        const status = document.getElementById("task-status");
         const taskTitle = taskInput.value.trim();
 
 
@@ -110,15 +136,40 @@ const renderTasks = () => {
 
         }
 
-        const task = {
-            id: crypto.randomUUID(),
-            title: taskTitle,
-            completed: false
-        };
+        submitButton.disabled = true;
+        taskInput.readOnly = true;
+        status.textContent = "adding task..."
 
-        tasks.push(task);
-        renderTask(task);
-        saveTasks(tasks);
+        let createdTask;
+
+        try {
+            createdTask = await createTask(taskTitle);
+            taskInput.value = "";
+
+            const alreadyInList = tasks.some((task) => task.id === createdTask.id);
+
+            if (!alreadyInList) {
+                const updatedTasks = tasks.concat(createdTask);
+                saveTasks(updatedTasks);
+                tasks = updatedTasks;
+                renderTasks();
+            }
+
+            status.textContent = "Task added.";
+        } catch (error) {
+            status.textContent = createdTask
+                ? "Task created on the server. Could not update the list."
+                : "Could not add the task.";
+            console.error(error);
+        } finally {
+            submitButton.disabled = false;
+            taskInput.readOnly = false;
+            taskInput.focus();
+        }
+
+
+
+
     }
 
 const importSampleTasks = async (event) => {
