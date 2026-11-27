@@ -1,15 +1,32 @@
 import express from "express";
-import cors from "cors";
-import { eq } from "drizzle-orm";
+import { eq ,and } from "drizzle-orm";
 import { db } from "./db/client.js";
-import { tasksTable } from "./db/schema.js";
+import { hashPassword, verifyPassword } from "./password.js";
+import { tasksTable, usersTable } from "./db/schema.js";
+import { startSession, getSessionUser, endSession } from "./session.js";
+import { fileURLToPath } from "node:url";
+
 
 const app = express();
 const host = "127.0.0.1";
 const port = 3000;
 
-app.use(cors({ origin: "http://localhost:63342" }));
 app.use(express.json());
+
+async function requireAuth(request, response, next) {
+    response.set("Cache-Control", "no-store");
+
+    const user = await getSessionUser(request);
+
+    if (!user) {
+        return response.status(401).json({ error: "Sign in to continue." });
+    }
+
+    request.user = user;
+    next();
+}
+
+app.use("/api/tasks", requireAuth);
 
 const uuidPattern = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
@@ -25,8 +42,11 @@ function readTitle(value) {
     return typeof value === "string" ? value.trim() : "";
 }
 
-app.get("/api/tasks", async (_request, response) => {
-    const tasks = await db.select().from(tasksTable);
+app.get("/api/tasks", async (request, response) => {
+    const tasks = await db.select()
+        .from(tasksTable)
+        .where(eq(tasksTable.ownerId, request.user.id));
+
     response.json(tasks);
 });
 
@@ -37,8 +57,9 @@ app.post("/api/tasks", async (request, response) => {
         return response.status(400).json({ error: "Task title is required." });
     }
 
-    const [task] = await db.insert(tasksTable).values({ title }).returning();
-    response.status(201).json(task);
+    const [task] = await db.insert(tasksTable)
+        .values({ title, ownerId: request.user.id })
+        .returning();
 });
 
 app.patch("/api/tasks/:id", async (request, response) => {
@@ -71,8 +92,10 @@ app.patch("/api/tasks/:id", async (request, response) => {
 
     const [task] = await db.update(tasksTable)
         .set(changes)
-        .where(eq(tasksTable.id, request.params.id))
-        .returning();
+        .where(and(
+            eq(tasksTable.id, request.params.id),
+            eq(tasksTable.ownerId, request.user.id)
+        ))
 
     if (!task) {
         return response.status(404).json({ error: "Task not found" });
@@ -83,8 +106,10 @@ app.patch("/api/tasks/:id", async (request, response) => {
 
 app.delete("/api/tasks/:id", async (request, response) => {
     const [task] = await db.delete(tasksTable)
-        .where(eq(tasksTable.id, request.params.id))
-        .returning({ id: tasksTable.id });
+        .where(and(
+            eq(tasksTable.id, request.params.id),
+            eq(tasksTable.ownerId, request.user.id)
+        ))
 
     if (!task) {
         return response.status(404).json({ error: "Task not found" });
@@ -94,6 +119,116 @@ app.delete("/api/tasks/:id", async (request, response) => {
     response.end();
 });
 
-app.listen(port, host, () => {
+
+app.post("/api/auth/register", async (request, response) => {
+    const rawEmail = request.body?.email;
+    const email = typeof rawEmail === "string"
+        ? rawEmail.trim().toLowerCase()
+        : "";
+    const password = request.body?.password;
+
+    if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return response.status(400).json({ error: "Enter a valid email address." });
+    }
+
+    if (typeof password !== "string" || password.length < 12 || password.length > 128) {
+        return response.status(400).json({
+            error: "Use a password between 12 and 128 characters."
+        });
+    }
+
+    try {
+        const passwordHash = await hashPassword(password);
+
+        const [user] = await db.insert(usersTable)
+            .values({ email, passwordHash })
+            .onConflictDoNothing({ target: usersTable.email })
+            .returning({ id: usersTable.id, email: usersTable.email });
+
+        if (!user) {
+            return response.status(409).json({ error: "Email is already registered." });
+        }
+
+        response.status(201).json({ user });
+    } catch (error) {
+        console.error("Registration failed.", error.cause?.code ?? error.code ?? error.name);
+        response.status(500).json({ error: "Could not create the account." });
+    }
+});
+
+
+app.post("/api/auth/login", async (request, response) => {
+    const rawEmail = request.body?.email;
+    const email = typeof rawEmail === "string"
+        ? rawEmail.trim().toLowerCase()
+        : "";
+    const password = request.body?.password;
+
+    if (
+        !email ||
+        email.length > 254 ||
+        typeof password !== "string" ||
+        password.length < 12 ||
+        password.length > 128
+    ) {
+        return response.status(400).json({
+            error: "Enter a valid email address and password."
+        });
+    }
+
+    try {
+        const [user] = await db.select()
+            .from(usersTable)
+            .where(eq(usersTable.email, email))
+            .limit(1);
+
+        const matches = await verifyPassword(password, user?.passwordHash);
+
+        if (!user || !matches) {
+            return response.status(401).json({
+                error: "Invalid email or password."
+            });
+        }
+        await startSession(request, response, user.id);
+        response.status(200).json({
+            user: { id: user.id, email: user.email }
+        });
+    } catch (error) {
+        console.error("Login failed.", error.cause?.code ?? error.code ?? error.name);
+        response.status(500).json({ error: "Could not sign in." });
+    }
+});
+
+app.get("/api/auth/me", async (request, response) => {
+    response.set("Cache-Control", "no-store");
+
+    const user = await getSessionUser(request);
+
+    if (!user) {
+        return response.status(401).json({ error: "Sign in to continue." });
+    }
+
+    response.json({ user });
+});
+
+app.post("/api/auth/logout", async (request, response) => {
+    response.set("Cache-Control", "no-store");
+
+    await endSession(request, response);
+
+    response.status(204);
+    response.end();
+});
+
+const publicPath = fileURLToPath(new URL("../public/", import.meta.url));
+app.use(express.static(publicPath));
+
+app.listen(port, host, (error) => {
+    if (error) {
+        console.error("Could not start the API:", error.code ?? error.message);
+        process.exitCode = 1;
+        return;
+    }
+
     console.log(`Task API running at http://${host}:${port}`);
 });

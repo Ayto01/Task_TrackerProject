@@ -1,4 +1,4 @@
-const TASK_URL = "http://127.0.0.1:3000/api/tasks";
+const TASKS_URL = "/api/tasks";
 
 
 export const fetchTasks = async () => {

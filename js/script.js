@@ -1,61 +1,85 @@
-import { saveTasks, loadTasks } from "./storage.js";
-import { fetchTasks , createTask,deleteTask, updateTask} from "./api.js";
+import { fetchTasks, createTask, deleteTask, updateTask } from "./api.js";
+
+const taskForm = document.getElementById("task-form");
+const taskInput = document.getElementById("task");
+const submitButton = taskForm.querySelector('button[type="submit"]');
+const taskStatus = document.getElementById("task-status");
+
+const loadButton = document.getElementById("load-sample-tasks");
+const apiStatus = document.getElementById("api-status");
+
+const taskFilter = document.getElementById("task-filter");
+const taskList = document.getElementById("task-list");
 
 let tasks = [];
+let requestPending = false;
 
-const renderTask = (task) => {
-    const taskList = document.getElementById("task-list");
-    const taskItem = document.createElement("li");
+function setRequestPending(pending) {
+    requestPending = pending;
+    submitButton.disabled = pending;
+    taskInput.readOnly = pending;
+    loadButton.disabled = pending;
+    taskFilter.disabled = pending;
 
-    taskItem.classList.toggle("completed", task.completed);
+    taskList.querySelectorAll("input, button").forEach((control) => {
+        control.disabled = pending;
+    });
+}
 
-    const checkBox = document.createElement("input");
-    checkBox.type = "checkbox";
-    checkBox.classList.add("task-checkbox");
-    checkBox.checked = task.completed;
+async function runRequest(status, pendingMessage, errorMessage, action) {
+    if (requestPending) {
+        return;
+    }
 
-    checkBox.setAttribute("aria-label", "Complete task:" + task.title);
+    setRequestPending(true);
+    status.textContent = pendingMessage;
 
-    checkBox.addEventListener("change", async () => {
-        const completed = checkBox.checked;
-        checkBox.checked = task.completed;
+    try {
+        status.textContent = await action();
+    } catch (error) {
+        status.textContent = errorMessage;
+        console.error(error);
+    } finally {
+        setRequestPending(false);
+    }
+}
 
-        const status = document.getElementById("task-status");
-        const loadButton = document.getElementById("load-sample-tasks");
+function changeTask(id, changes) {
+    return runRequest(
+        taskStatus,
+        "Updating task...",
+        "Could not update the task. Try Reload tasks.",
+        async () => {
+            const updatedTask = await updateTask(id, changes);
 
-        if (loadButton.disabled) {
-            status.textContent = "Wait for the current request to finish.";
-            return;
-        }
+            if (!updatedTask) {
+                throw new Error("Task not found.");
+            }
 
-        checkBox.disabled = true;
-        loadButton.disabled = true;
-        status.textContent = "Updating task...";
-
-        try {
-            const updatedTask = await updateTask(task.id, { completed });
-            const nextCompleted = updatedTask?.completed ?? completed;
-
-            const updatedTasks = tasks.map((item) =>
-                item.id === task.id ? { ...item, completed: nextCompleted } : item
-            );
-
-            saveTasks(updatedTasks);
-            tasks = updatedTasks;
+            tasks = tasks.map((task) => task.id === id ? updatedTask : task);
             renderTasks();
 
-            status.textContent = updatedTask
-                ? "Task updated."
-                : "Task updated in this browser.";
-        } catch (error) {
-            status.textContent = "Could not finish updating the task.";
-            console.error(error);
-        } finally {
-            checkBox.disabled = false;
-            loadButton.disabled = false;
+            return "Task updated.";
         }
-    });
+    );
+}
 
+function renderTask(task) {
+    const taskItem = document.createElement("li");
+    taskItem.classList.toggle("completed", task.completed);
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.classList.add("task-checkbox");
+    checkbox.checked = task.completed;
+    checkbox.setAttribute("aria-label", `Complete task: ${task.title}`);
+
+    checkbox.addEventListener("change", () => {
+        const completed = checkbox.checked;
+        checkbox.checked = task.completed;
+
+        changeTask(task.id, { completed });
+    });
 
     const taskText = document.createElement("span");
     taskText.textContent = task.title;
@@ -64,13 +88,10 @@ const renderTask = (task) => {
     editButton.type = "button";
     editButton.textContent = "Edit";
     editButton.classList.add("edit-button");
+    editButton.setAttribute("aria-label", `Edit ${task.title}`);
 
-    editButton.addEventListener("click", async () => {
-        const status = document.getElementById("task-status");
-        const loadButton = document.getElementById("load-sample-tasks");
-
-        if (loadButton.disabled) {
-            status.textContent = "Wait for the current request to finish.";
+    editButton.addEventListener("click", () => {
+        if (requestPending) {
             return;
         }
 
@@ -80,88 +101,43 @@ const renderTask = (task) => {
             return;
         }
 
-        const newTitle = answer.trim();
+        const title = answer.trim();
 
-        if (newTitle === "") {
-            status.textContent = "Enter a task title.";
+        if (title === "") {
+            taskStatus.textContent = "Enter a task title.";
             return;
         }
 
-        editButton.disabled = true;
-        loadButton.disabled = true;
-        status.textContent = "Updating task...";
-
-        try {
-            const updatedTask = await updateTask(task.id, { title: newTitle });
-            const nextTitle = updatedTask?.title ?? newTitle;
-
-            const updatedTasks = tasks.map((item) =>
-                item.id === task.id ? { ...item, title: nextTitle } : item
-            );
-
-            saveTasks(updatedTasks);
-            tasks = updatedTasks;
-            renderTasks();
-
-            status.textContent = updatedTask
-                ? "Task updated."
-                : "Task updated in this browser.";
-        } catch (error) {
-            status.textContent = "Could not finish updating the task.";
-            console.error(error);
-        } finally {
-            editButton.disabled = false;
-            loadButton.disabled = false;
-        }
+        changeTask(task.id, { title });
     });
-
 
     const deleteButton = document.createElement("button");
     deleteButton.type = "button";
     deleteButton.textContent = "Delete";
     deleteButton.classList.add("delete-button");
-   deleteButton.addEventListener("click", async () => {
-       const status = document.getElementById("task-status");
-       const loadButton = document.getElementById("load-sample-tasks");
+    deleteButton.setAttribute("aria-label", `Delete ${task.title}`);
 
-       if(loadButton.disabled){
-           status.textContent = "Wait for the current request to finish."
-       return;
-       }
-       deleteButton.disabled = true;
-       loadButton.disabled = true;
-       status.textContent = "Deleting task.."
+    deleteButton.addEventListener("click", () => {
+        runRequest(
+            taskStatus,
+            "Deleting task...",
+            "Could not delete the task.",
+            async () => {
+                await deleteTask(task.id);
 
-       try {
-           await deleteTask(task.id);
+                tasks = tasks.filter((item) => item.id !== task.id);
+                renderTasks();
 
-           const updatedTasks = tasks.filter((item) => item.id !== task.id);
-           saveTasks(updatedTasks);
-           tasks = updatedTasks;
-           renderTasks();
+                return "Task deleted.";
+            }
+        );
+    });
 
-           status.textContent = "Task deleted.";
-       } catch (error) {
-           status.textContent = "Could not finish deleting the task.";
-           console.error(error);
-       } finally {
-           deleteButton.disabled = false;
-           loadButton.disabled = false;
-       }
-
-   })
-
-
-    taskItem.appendChild(checkBox);
-    taskItem.appendChild(taskText);
-    taskItem.appendChild(deleteButton);
-    taskItem.appendChild(editButton);
-    taskList.appendChild(taskItem);
+    taskItem.append(checkbox, taskText, editButton, deleteButton);
+    return taskItem;
 }
 
-const taskFilter = document.getElementById("task-filter");
-
-const renderTasks = () => {
+function renderTasks() {
     const filter = taskFilter.value;
 
     const visibleTasks = tasks.filter((task) => {
@@ -176,108 +152,67 @@ const renderTasks = () => {
         return true;
     });
 
-    const taskList = document.getElementById("task-list");
     taskList.replaceChildren();
-    visibleTasks.forEach(renderTask);
-};
+    visibleTasks.forEach((task) => {
+        taskList.appendChild(renderTask(task));
+    });
+}
 
+async function addTask(event) {
+    event.preventDefault();
 
+    if (requestPending) {
+        return;
+    }
 
+    const title = taskInput.value.trim();
 
+    if (title === "") {
+        taskStatus.textContent = "Enter a task title.";
+        taskInput.focus();
+        return;
+    }
 
-    const addTask = async (event) => {
-        event.preventDefault();
+    await runRequest(
+        taskStatus,
+        "Adding task...",
+        "Could not add the task.",
+        async () => {
+            const task = await createTask(title);
 
-        const taskInput = document.getElementById("task");
-        const submitButton = event.currentTarget.querySelector('button[type="submit"]');
-        const status = document.getElementById("task-status");
-        const taskTitle = taskInput.value.trim();
-
-
-        if (taskTitle === "") {
-            taskInput.focus();
-            return;
-
-        }
-
-        submitButton.disabled = true;
-        taskInput.readOnly = true;
-        status.textContent = "adding task..."
-
-        let createdTask;
-
-        try {
-            createdTask = await createTask(taskTitle);
+            tasks.push(task);
             taskInput.value = "";
+            renderTasks();
 
-            const alreadyInList = tasks.some((task) => task.id === createdTask.id);
-
-            if (!alreadyInList) {
-                const updatedTasks = tasks.concat(createdTask);
-                saveTasks(updatedTasks);
-                tasks = updatedTasks;
-                renderTasks();
-            }
-
-            status.textContent = "Task added.";
-        } catch (error) {
-            status.textContent = createdTask
-                ? "Task created on the server. Could not update the list."
-                : "Could not add the task.";
-            console.error(error);
-        } finally {
-            submitButton.disabled = false;
-            taskInput.readOnly = false;
-            taskInput.focus();
+            return taskFilter.value === "completed"
+                ? "Task added. Switch to All or Active to see it."
+                : "Task added.";
         }
+    );
 
+    taskInput.focus();
+}
 
+function loadTasksFromApi() {
+    return runRequest(
+        apiStatus,
+        "Loading tasks...",
+        "Could not load tasks. Try Reload tasks.",
+        async () => {
+            tasks = await fetchTasks();
+            renderTasks();
 
+            return "";
+        }
+    );
+}
 
-    }
+function setup() {
+    taskForm.addEventListener("submit", addTask);
+    taskFilter.addEventListener("change", renderTasks);
+    loadButton.addEventListener("click", loadTasksFromApi);
 
-const importSampleTasks = async (event) => {
-    const button = event.currentTarget;
-    const status = document.getElementById("api-status");
+    loadTasksFromApi();
+}
 
-    button.disabled = true;
-    status.textContent = "Loading sample tasks...";
-
-    try {
-        const apiTasks = await fetchTasks();
-        const newTasks = apiTasks.filter(
-            (apiTask) => !tasks.some((task) => task.id === apiTask.id)
-        );
-
-        const updatedTasks = tasks.concat(newTasks);
-        saveTasks(updatedTasks);
-        tasks = updatedTasks;
-        renderTasks();
-
-        status.textContent = "Sample tasks loaded.";
-    } catch (e) {
-        status.textContent = "Could not load sample tasks.";
-        console.error(e);
-    } finally {
-        button.disabled = false;
-    }
-};
-
-    const setup = () =>{
-        tasks = loadTasks();
-        tasks.forEach(renderTask);
-
-
-
-        const taskForm = document.getElementById("task-form");
-        taskForm.addEventListener("submit",addTask)
-
-        taskFilter.addEventListener("change", renderTasks);
-
-        const loadButton = document.getElementById("load-sample-tasks");
-        loadButton.addEventListener("click", importSampleTasks);
-    }
-
-    window.addEventListener("load", setup);
-
-
+window.addEventListener("load", setup);
