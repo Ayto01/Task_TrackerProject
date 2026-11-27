@@ -29,7 +29,7 @@ The button does not create tasks yet. Functionality will be added as development
 ## Getting Started
 
 1. Clone or download this repository.
-2. Open `index.html` in your web browser.
+2. Open `public/index.html` in your web browser.
 
 ## Learning Goals
 
