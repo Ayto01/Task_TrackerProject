@@ -1,5 +1,12 @@
-import { fetchTasks, createTask, deleteTask, updateTask } from "./api.js";
-
+import {
+    fetchTasks,
+    createTask,
+    deleteTask,
+    updateTask,
+    getCurrentUser,
+    signIn,
+    signOut
+} from "./api.js";
 const taskForm = document.getElementById("task-form");
 const taskInput = document.getElementById("task");
 const submitButton = taskForm.querySelector('button[type="submit"]');
@@ -11,6 +18,11 @@ const apiStatus = document.getElementById("api-status");
 const taskFilter = document.getElementById("task-filter");
 const taskList = document.getElementById("task-list");
 
+const signOutButton = document.getElementById("sign-out-button");
+
+
+
+
 let tasks = [];
 let requestPending = false;
 
@@ -20,6 +32,7 @@ function setRequestPending(pending) {
     taskInput.readOnly = pending;
     loadButton.disabled = pending;
     taskFilter.disabled = pending;
+    signOutButton.disabled = pending;
 
     taskList.querySelectorAll("input, button").forEach((control) => {
         control.disabled = pending;
@@ -207,12 +220,84 @@ function loadTasksFromApi() {
     );
 }
 
-function setup() {
+const loginView = document.getElementById("login-view");
+const loginForm = document.getElementById("login-form");
+const loginStatus = document.getElementById("login-status");
+const tasksView = document.getElementById("tasks-view");
+
+function showTasksView() {
+    loginView.hidden = true;
+    tasksView.hidden = false;
+    loadTasksFromApi();
+}
+
+async function handleLogin(event) {
+    event.preventDefault();
+
+    const loginButton = loginForm.querySelector('button[type="submit"]');
+    const email = document.getElementById("login-email").value.trim();
+    const password = document.getElementById("login-password").value;
+
+    loginButton.disabled = true;
+    loginStatus.textContent = "Signing in...";
+
+    try {
+        await signIn(email, password);
+        loginForm.reset();
+        loginStatus.textContent = "";
+        showTasksView();
+    } catch (error) {
+        loginStatus.textContent = error.message;
+    } finally {
+        loginButton.disabled = false;
+    }
+}
+
+function handleSignOut() {
+    return runRequest(
+        taskStatus,
+        "Signing out...",
+        "Could not sign out.",
+        async () => {
+            await signOut();
+
+            tasks = [];
+            taskForm.reset();
+            taskFilter.value = "all";
+            renderTasks();
+
+            apiStatus.textContent = "";
+            tasksView.hidden = true;
+            loginView.hidden = false;
+            loginStatus.textContent = "Signed out.";
+
+            return "";
+        }
+    );
+}
+
+
+
+
+async function setup() {
+    loginForm.addEventListener("submit", handleLogin);
     taskForm.addEventListener("submit", addTask);
     taskFilter.addEventListener("change", renderTasks);
     loadButton.addEventListener("click", loadTasksFromApi);
+    signOutButton.addEventListener("click", handleSignOut);
 
-    loadTasksFromApi();
+    try {
+        const user = await getCurrentUser();
+
+        if (user) {
+            showTasksView();
+        } else {
+            loginView.hidden = false;
+        }
+    } catch (error) {
+        loginView.hidden = false;
+        loginStatus.textContent = error.message;
+    }
 }
 
 window.addEventListener("load", setup);

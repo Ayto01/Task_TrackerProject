@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Create an account | Task Tracker</title>
+    <link rel="stylesheet" href="./css/style.css">
+    <script type="module" src="/js/register.js"></script>
+</head>
+<body>
+<h1>Create an account</h1>
+
+<form id="register-form" action="/api/auth/register" method="post">
+    <label for="register-email">Email</label>
+    <input id="register-email" name="email" type="email"
+           autocomplete="email" maxlength="254" required>
+
+    <label for="register-password">Password</label>
+    <input id="register-password" name="password" type="password"
+           autocomplete="new-password" minlength="12" maxlength="128"
+           aria-describedby="password-help" required>
+    <p id="password-help">Use 12 to 128 characters.</p>
+
+    <button type="submit">Create account</button>
+</form>
+
+<p id="register-status" role="status"></p>
+<a id="sign-in-link" href="/">Back to sign in</a>
+</body>
+</html>

@@ -8,6 +8,29 @@
     <script type="module" src="/js/script.js"></script>
 </head>
 <body>
+
+<section id="login-view" hidden>
+    <h1>Sign in</h1>
+
+
+
+    <form id="login-form" action="/api/auth/login" method="post">
+        <label for="login-email">Email</label>
+        <input id="login-email" name="email" type="email" autocomplete="email" required>
+
+        <label for="login-password">Password</label>
+        <input id="login-password" name="password" type="password"
+               autocomplete="current-password" required>
+
+        <button type="submit">Sign in</button>
+        <p><a href="/register.html">Create an account</a></p>
+    </form>
+
+    <p id="login-status" role="status"></p>
+</section>
+
+
+<section id="tasks-view" hidden>
     <h1>My Tasks</h1>
 
     <form id="task-form">
@@ -16,6 +39,7 @@
 
 
         <button type="submit">Add</button>
+        <button id="sign-out-button" type="button">Sign out</button>
         <p id="task-status" role="status"></p>
 
 
@@ -33,6 +57,8 @@
     </div>
 
   <ul id="task-list"></ul>
+
+</section>
 
   
 

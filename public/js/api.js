@@ -62,3 +62,54 @@ export const updateTask = async (id, changes) => {
 
     throw new Error(`Failed to update task (${response.status})`);
 };
+
+export const getCurrentUser = async () => {
+    const response = await fetch("/api/auth/me");
+
+    if (response.status === 401) {
+        return null;
+    }
+
+    if (!response.ok) {
+        throw new Error("Could not check your session.");
+    }
+
+    const { user } = await response.json();
+    return user;
+};
+
+export const signIn = async (email, password) => {
+    const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+    });
+
+    if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error ?? "Could not sign in.");
+    }
+};
+
+export const signOut = async () => {
+    const response = await fetch("/api/auth/logout", {
+        method: "POST"
+    });
+
+    if (!response.ok) {
+        throw new Error("Could not sign out.");
+    }
+};
+
+export const registerAccount = async (email, password) => {
+    const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+    });
+
+    if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error ?? "Could not create the account.");
+    }
+};

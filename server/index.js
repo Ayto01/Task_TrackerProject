@@ -60,6 +60,8 @@ app.post("/api/tasks", async (request, response) => {
     const [task] = await db.insert(tasksTable)
         .values({ title, ownerId: request.user.id })
         .returning();
+
+    return response.status(201).json(task);
 });
 
 app.patch("/api/tasks/:id", async (request, response) => {
@@ -96,6 +98,7 @@ app.patch("/api/tasks/:id", async (request, response) => {
             eq(tasksTable.id, request.params.id),
             eq(tasksTable.ownerId, request.user.id)
         ))
+        .returning();
 
     if (!task) {
         return response.status(404).json({ error: "Task not found" });
@@ -105,20 +108,20 @@ app.patch("/api/tasks/:id", async (request, response) => {
 });
 
 app.delete("/api/tasks/:id", async (request, response) => {
-    const [task] = await db.delete(tasksTable)
+    const [deletedTask] = await db.delete(tasksTable)
         .where(and(
             eq(tasksTable.id, request.params.id),
             eq(tasksTable.ownerId, request.user.id)
         ))
+        .returning({ id: tasksTable.id });
 
-    if (!task) {
+    if (!deletedTask) {
         return response.status(404).json({ error: "Task not found" });
     }
 
     response.status(204);
     response.end();
 });
-
 
 app.post("/api/auth/register", async (request, response) => {
     const rawEmail = request.body?.email;
