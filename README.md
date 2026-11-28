@@ -1,40 +1,43 @@
-# Task_TrackerProject
+# Task Tracker
 
-A personal task tracking application built step by step while learning full-stack web development.
+A full-stack web app for managing personal tasks. Create an account,
+sign in, and organize your own task list.
 
-## Project Status
+## Features
 
-This project is in its early stages. The current version includes a basic HTML interface with a task input field and an Add button.
+- Account registration, sign-in, and sign-out
+- Add, edit, complete, and delete tasks
+- Filter tasks by All, Active, or Completed
+- Private task lists for each account
+- Persistent data in PostgreSQL
 
-The button does not create tasks yet. Functionality will be added as development progresses.
+## Built with
 
-## Built With
+- HTML, CSS, and JavaScript
+- Node.js and Express
+- PostgreSQL and Drizzle ORM
+- Docker Compose for local development
 
-- HTML5
+## Run locally
 
-## Roadmap
+Install Node.js 24 and Docker with Compose. From a fresh clone,
+run these commands in the project folder:
 
-- [x] Create the basic HTML interface
-- [ ] Add responsive styling with CSS
-- [ ] Add tasks using JavaScript
-- [ ] Mark tasks as completed
-- [ ] Edit and delete tasks
-- [ ] Filter tasks by status
-- [ ] Build a backend API
-- [ ] Store users and tasks in a database
-- [ ] Add registration, login, and logout
-- [ ] Restrict task access to its owner
-- [ ] Deploy the application
+```bash
+docker compose up -d --wait db
+cd server
+cp .env.example .env
+npm ci
+npx drizzle-kit migrate
+node index.js
+```
 
-## Getting Started
+Open `http://127.0.0.1:3000/`. Select **Create an account**, then sign
+in and add your first task.
 
-1. Clone or download this repository.
-2. Open `public/index.html` in your web browser.
+## Project structure
 
-## Learning Goals
-
-- Build accessible and responsive interfaces.
-- Handle user interactions with JavaScript.
-- Connect a frontend to a backend API.
-- Design and work with a relational database.
-- Implement authentication and authorization.
+- `public/` contains the browser interface.
+- `server/` contains the Express API and session logic.
+- `server/db/` contains the database connection and schema.
+- `server/drizzle/` contains database migrations.

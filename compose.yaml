@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: tasktracker
+      POSTGRES_PASSWORD: 12345bk
+      POSTGRES_DB: task_tracker
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - task_tracker_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U tasktracker -d task_tracker"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  task_tracker_data:
